@@ -20,15 +20,20 @@ const registerUser = asyncHandler(async(req,res) => {
         throw new ApiError(409, "User with email or username already exists")
     }
 
+    let converImageLocalPath = ""
     const avatarLocalPath = req.files?.avatar[0]?.path;
-    const converImageLocalPath = req.files?.coverImage[0]?.path;
-
+    
     if(!avatarLocalPath){
         throw new ApiError(400, "Avatar file is required")
     }
 
     const avatar = await uploadOnCloudinary(avatarLocalPath)
-    const coverImage = await uploadOnCloudinary(converImageLocalPath)
+    let coverImage = null
+    if(res.files && Array.isArray(req.files?.coverImage) && req.files?.coverImage.length){
+        converImageLocalPath = req.files?.coverImage[0]?.path;
+        coverImage = await uploadOnCloudinary(converImageLocalPath)
+    }
+
 
     if(!avatar){
         throw new ApiError(400, "Avatar file is required")
@@ -47,7 +52,7 @@ const registerUser = asyncHandler(async(req,res) => {
         "-password -refreshToken"
     ) // remove some fields if not want
 
-    if(createdUser){
+    if(!createdUser){
         throw new ApiError(500, "Something went wrong while registering user")
     }
 
@@ -56,4 +61,25 @@ const registerUser = asyncHandler(async(req,res) => {
     )
 })
 
-export { registerUser }
+const loginUser = asyncHandler(async (req,res) => {
+    const {email, password} = req.body;
+
+    if(email?.trim() === "" || password?.trim() === ""){
+        throw new ApiError(400,"Email and password are required")
+    }
+
+    const userExist = await User.findOne({email})
+
+    const passwordMatched = await userExist.isPasswordCorrect(password);
+
+    if(!passwordMatched){
+        throw new ApiError(400,"Invalid email or password")
+    }
+
+    return res.status(201).json(
+        new ApiResponse(200, userExist, "User LoggedIn Successfully")
+    )
+
+})
+
+export { registerUser, loginUser }
